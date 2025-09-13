@@ -10,9 +10,35 @@
 
 const int SCREEN_WIDTH = 1280;
 const int SCREEN_HEIGHT = 720;
+const float MIN_CELL_SIZE_F = 2.0f;
+const float MAX_CELL_SIZE_F = 100.0f;
+
+// HELPER FUNCTION FOR ZOOMING
+void zoom(Grid &grid, float &preciseCellSize, float zoomFactor, int mouseX, int mouseY) {
+    // Get world coordinates of the point under the mouse
+    float worldX = (float)(mouseX - grid.offsetX) / grid.cellSize;
+    float worldY = (float)(mouseY - grid.offsetY) / grid.cellSize;
+
+    // Update precise cell size
+    preciseCellSize *= zoomFactor;
+    if (preciseCellSize < MIN_CELL_SIZE_F) preciseCellSize = MIN_CELL_SIZE_F;
+    if (preciseCellSize > MAX_CELL_SIZE_F) preciseCellSize = MAX_CELL_SIZE_F;
+
+    int newCellSize = static_cast<int>(preciseCellSize);
+
+    // If the integer cell size has not changed, no need to update offsets or redraw
+    if (newCellSize == grid.cellSize) return;
+
+    grid.cellSize = newCellSize;
+
+    // Adjust offset to keep the world point under the mouse
+    grid.offsetX = mouseX - (int)(worldX * grid.cellSize);
+    grid.offsetY = mouseY - (int)(worldY * grid.cellSize);
+}
+
 
 int main(int argc, char *argv[]) {
-    // --- INITIALIZATION ---
+    // INITIALIZATION
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL could not be initialized! SDL_Error: " << SDL_GetError() << std::endl;
         return 1;
@@ -27,97 +53,123 @@ int main(int argc, char *argv[]) {
     SDL_Window *window = SDL_CreateWindow("Conway's Game of Life",
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                           SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_RESIZABLE);
-    if (!window) {
-        std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        TTF_Quit();
-        SDL_Quit();
-        return 1;
-    }
-
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
-        std::cerr << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        SDL_DestroyWindow(window);
-        TTF_Quit();
-        SDL_Quit();
-        return 1;
-    }
 
-    // --- FONT AND UI ---
-    // IMPORTANT: Place a font file named 'sans.ttf' in the same directory as the executable
+
+    // FONT AND UI
     TTF_Font *font = TTF_OpenFont("sans.ttf", 24);
-    if (font == nullptr) {
-        std::cerr << "Failed to load font! SDL_ttf Error: " << TTF_GetError() << std::endl;
-        // We don't exit, the button drawing function has a fallback
-    }
 
     Button settingsButton(10, 10, 150, 40, "Settings");
     Button startButton(SCREEN_WIDTH - 160, 10, 150, 40, "Start");
 
-
-    // --- GAME SETUP ---
+    // GAME SETUP
     GameState currentState = GameState::PRE_GAME;
-    const int cellSize = 20;
-    Grid grid = initGrid(100, 100, cellSize); // A large grid
+    Grid grid = initGrid(200, 200, 20);
+    float preciseCellSize = (float)grid.cellSize;
     InputState input;
-    
     bool running = true;
     Uint32 lastUpdateTime = 0;
-    const Uint32 updateInterval = 100; // Milliseconds between updates
+    const Uint32 updateInterval = 100;
 
-    // --- MAIN LOOP ---
+    // MAIN LOOP
     while (running) {
         SDL_Event event;
-        // --- EVENT HANDLING ---
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                running = false;
+            bool eventHandled = false;
+
+            switch (event.type) {
+                case SDL_QUIT:
+                    running = false;
+                    eventHandled = true;
+                    break;
+
+                // TOUCH AND MOUSE CLICK HANDLING
+                case SDL_MOUSEBUTTONDOWN:
+                case SDL_FINGERUP: {
+                    int mouseX, mouseY;
+                    if (event.type == SDL_MOUSEBUTTONDOWN) {
+                        mouseX = event.button.x;
+                        mouseY = event.button.y;
+                    } else { // Fingerup
+                        int w, h;
+                        SDL_GetWindowSize(window, &w, &h);
+                        mouseX = event.tfinger.x * w;
+                        mouseY = event.tfinger.y * h;
+                    }
+
+                    if (settingsButton.isClicked(mouseX, mouseY)) {
+                        currentState = (currentState == GameState::SETTINGS) ? GameState::PRE_GAME : GameState::SETTINGS;
+                        settingsButton.text = (currentState == GameState::SETTINGS) ? "Back" : "Settings";
+                        eventHandled = true;
+                    } else if (startButton.isClicked(mouseX, mouseY)) {
+                        currentState = (currentState == GameState::RUNNING) ? GameState::PRE_GAME : GameState::RUNNING;
+                        startButton.text = (currentState == GameState::RUNNING) ? "Pause" : "Start";
+                        eventHandled = true;
+                    }
+                    break;
+                }
+
+                // ZOOM AND PAN HANDLING
+                case SDL_MOUSEWHEEL: {
+                    SDL_Keymod mod = SDL_GetModState();
+                    int mouseX, mouseY;
+                    SDL_GetMouseState(&mouseX, &mouseY);
+                    if (mod & KMOD_CTRL) { // Zoom with ctrl+scroll
+                        float zoomFactor = (event.wheel.y > 0) ? 1.1f : 0.9f;
+                        zoom(grid, preciseCellSize, zoomFactor, mouseX, mouseY);
+                    } else { // Pan with scroll
+                        grid.offsetX -= event.wheel.x * (grid.cellSize / 2);
+                        grid.offsetY += event.wheel.y * (grid.cellSize / 2);
+                    }
+                    eventHandled = true;
+                    break;
+                }
+
+                case SDL_KEYDOWN: {
+                    SDL_Keymod mod = SDL_GetModState();
+                    if (mod & KMOD_CTRL) {
+                        if (event.key.keysym.sym == SDLK_EQUALS || event.key.keysym.sym == SDLK_PLUS) {
+                            int w, h;
+                            SDL_GetWindowSize(window, &w, &h);
+                            zoom(grid, preciseCellSize, 1.25f, w / 2, h / 2);
+                            eventHandled = true;
+                        } else if (event.key.keysym.sym == SDLK_MINUS) {
+                            int w, h;
+                            SDL_GetWindowSize(window, &w, &h);
+                            zoom(grid, preciseCellSize, 0.8f, w / 2, h / 2);
+                            eventHandled = true;
+                        }
+                    }
+                    break;
+                }
+
+                case SDL_MULTIGESTURE: {
+                    if (event.mgesture.dDist > 0.0001f || event.mgesture.dDist < -0.0001f) { // Lowered threshold
+                        int w, h;
+                        SDL_GetWindowSize(window, &w, &h);
+                        float zoomFactor = 1.0f + (event.mgesture.dDist * 2.0f); // Amplified factor
+                        zoom(grid, preciseCellSize, zoomFactor, event.mgesture.x * w, event.mgesture.y * h);
+                        eventHandled = true;
+                    }
+                    break;
+                }
             }
 
-            // --- Global Button Click Handling ---
-            if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
-                int mouseX, mouseY;
-                SDL_GetMouseState(&mouseX, &mouseY);
-
-                if (settingsButton.isClicked(mouseX, mouseY)) {
-                    if (currentState == GameState::SETTINGS) {
-                        currentState = GameState::PRE_GAME;
-                        settingsButton.text = "Settings";
-                    } else {
-                        currentState = GameState::SETTINGS;
-                        settingsButton.text = "Back";
-                    }
-                } else if (startButton.isClicked(mouseX, mouseY)) {
-                    if (currentState == GameState::RUNNING) {
-                        currentState = GameState::PRE_GAME;
-                        startButton.text = "Start";
-                    } else {
-                        currentState = GameState::RUNNING;
-                        startButton.text = "Pause";
-                    }
-                } else {
-                    // If no button was clicked, pass event to state-specific handler
-                    switch (currentState) {
-                        case GameState::PRE_GAME:
-                            handlePreGameEvent(event, grid, input, window);
-                            break;
-                        case GameState::SETTINGS:
-                            handleSettingsEvent(event);
-                            break;
-                        case GameState::RUNNING:
-                            // No input during simulation for now
-                            break;
-                    }
+            // STATE-SPECIFIC EVENT HANDLING
+            if (!eventHandled) {
+                switch (currentState) {
+                    case GameState::PRE_GAME:
+                        handlePreGameEvent(event, grid, input, window);
+                        break;
+                    case GameState::SETTINGS:
+                        handleSettingsEvent(event);
+                        break;
+                    default: break;
                 }
-            } else {
-                 // Pass non-click events to handlers as well
-                 if (currentState == GameState::PRE_GAME) {
-                    handlePreGameEvent(event, grid, input, window);
-                 }
             }
         }
 
-        // --- LOGIC / UPDATES ---
+        // LOGIC AND UPDATES
         if (currentState == GameState::RUNNING) {
             Uint32 currentTime = SDL_GetTicks();
             if (currentTime - lastUpdateTime > updateInterval) {
@@ -126,17 +178,14 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // --- RENDERING ---
-        // Get window size for responsive UI
+        // RENDERING
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
-        startButton.rect.x = w - 160; // Keep start button on the right
+        startButton.rect.x = w - 160;
 
-        // Clear screen
         SDL_SetRenderDrawColor(renderer, 10, 10, 20, 255);
         SDL_RenderClear(renderer);
 
-        // State-specific rendering
         switch (currentState) {
             case GameState::PRE_GAME:
             case GameState::RUNNING:
@@ -147,15 +196,13 @@ int main(int argc, char *argv[]) {
                 break;
         }
 
-        // Draw UI on top of everything
         settingsButton.draw(renderer, font);
         startButton.draw(renderer, font);
 
-        // Present frame
         SDL_RenderPresent(renderer);
     }
 
-    // --- CLEANUP ---
+    // CLEANUP
     TTF_CloseFont(font);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

@@ -105,10 +105,6 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
             input.lastMouseY = event.motion.y;
         }
         break;
-    case SDL_MOUSEWHEEL:
-        grid.offsetX -= event.wheel.x * (grid.cellSize / 2);
-        grid.offsetY += event.wheel.y * (grid.cellSize / 2);
-        break;
     case SDL_FINGERDOWN:
         input.fingerDown = true;
         input.isPanning = false;
