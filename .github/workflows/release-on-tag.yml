@@ -47,13 +47,14 @@ jobs:
             - name: Build binary
               run: |
                   BIN_NAME="conways-game-of-life"
+                  SDL_FLAGS=$(pkg-config --cflags --libs sdl2 SDL2_image SDL2_ttf)
                   if [ "${{ runner.os }}" == "Windows" ]; then
                     BIN_NAME="${BIN_NAME}.exe"
-                    g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                    g++ -std=c++17 *.cpp -o "$BIN_NAME" $SDL_FLAGS
                   elif [ "${{ runner.os }}" == "macOS" ]; then
-                    clang++ -std=c++17 -arch ${{ matrix.config.arch }} *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                    clang++ -std=c++17 -arch ${{ matrix.config.arch }} *.cpp -o "$BIN_NAME" $SDL_FLAGS
                   else
-                    g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                    g++ -std=c++17 *.cpp -o "$BIN_NAME" $SDL_FLAGS
                   fi
                   echo "BIN_PATH=${BIN_NAME}" >> $GITHUB_ENV
 
