@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL2/SDL.h>
 #include <vector>
+#include <algorithm> // For std::min/max
 
 const int MIN_CELL_SIZE_FOR_TOGGLE = 8;
 
@@ -28,6 +29,31 @@ struct InputState
     float lastFingerX = 0.0f;
     float lastFingerY = 0.0f;
 };
+
+// Centralized function to handle panning with constraints
+inline void panGrid(Grid &grid, int dx, int dy, int windowWidth, int windowHeight) {
+    int gridPixelWidth = grid.cols * grid.cellSize;
+    int gridPixelHeight = grid.rows * grid.cellSize;
+
+    // Define the soft boundaries
+    int minX = -gridPixelWidth + grid.cellSize; // Keep at least one cell column visible
+    int maxX = windowWidth - grid.cellSize;    // Keep at least one cell column visible
+    int minY = -gridPixelHeight + grid.cellSize; // Keep at least one cell row visible
+    int maxY = windowHeight - grid.cellSize;     // Keep at least one cell row visible
+
+    // If the grid is smaller than the window, center it and don't pan
+    if (gridPixelWidth < windowWidth) {
+        grid.offsetX = (windowWidth - gridPixelWidth) / 2;
+    } else {
+        grid.offsetX = std::max(minX, std::min(maxX, grid.offsetX + dx));
+    }
+
+    if (gridPixelHeight < windowHeight) {
+        grid.offsetY = (windowHeight - gridPixelHeight) / 2;
+    } else {
+        grid.offsetY = std::max(minY, std::min(maxY, grid.offsetY + dy));
+    }
+}
 
 // Initialize grid
 inline Grid initGrid(int rows, int cols, int cellSize)
@@ -112,10 +138,9 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
     case SDL_MOUSEMOTION:
         if (input.rightMouseDown)
         {
-            int dx = event.motion.x - input.lastMouseX;
-            int dy = event.motion.y - input.lastMouseY;
-            grid.offsetX += dx;
-            grid.offsetY += dy;
+            int w, h;
+            SDL_GetWindowSize(window, &w, &h);
+            panGrid(grid, event.motion.x - input.lastMouseX, event.motion.y - input.lastMouseY, w, h);
             input.lastMouseX = event.motion.x;
             input.lastMouseY = event.motion.y;
         }
@@ -164,8 +189,7 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
                 SDL_GetWindowSize(window, &w, &h);
                 int dx = (event.tfinger.x - input.lastFingerX) * w;
                 int dy = (event.tfinger.y - input.lastFingerY) * h;
-                grid.offsetX += dx;
-                grid.offsetY += dy;
+                panGrid(grid, dx, dy, w, h);
                 input.lastFingerX = event.tfinger.x;
                 input.lastFingerY = event.tfinger.y;
             }

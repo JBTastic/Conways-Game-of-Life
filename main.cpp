@@ -144,15 +144,20 @@ int main(int argc, char *argv[])
                 else
                 { // Pan with scroll
                     const int PAN_SPEED = 40;
+                    int dx = 0, dy = 0;
+
                     if (mod & KMOD_SHIFT)
                     { // Shift+scroll for horizontal panning
-                        grid.offsetX += event.wheel.y * PAN_SPEED;
+                        dx = -event.wheel.y * PAN_SPEED;
                     }
                     else
                     {
-                        grid.offsetX -= event.wheel.x * PAN_SPEED;
-                        grid.offsetY += event.wheel.y * PAN_SPEED;
+                        dx = -event.wheel.x * PAN_SPEED;
+                        dy = event.wheel.y * PAN_SPEED;
                     }
+                    int w, h;
+                    SDL_GetWindowSize(window, &w, &h);
+                    panGrid(grid, dx, dy, w, h);
                 }
                 eventHandled = true;
                 break;
