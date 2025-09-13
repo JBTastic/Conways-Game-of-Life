@@ -61,6 +61,7 @@ int main(int argc, char *argv[]) {
 
     Button settingsButton(10, 10, 150, 40, "Settings");
     Button startButton(SCREEN_WIDTH - 160, 10, 150, 40, "Start");
+    Button clearButton(SCREEN_WIDTH / 2 - 75, 10, 150, 40, "Clear");
 
     // GAME SETUP
     GameState currentState = GameState::PRE_GAME;
@@ -105,6 +106,9 @@ int main(int argc, char *argv[]) {
                         currentState = (currentState == GameState::RUNNING) ? GameState::PRE_GAME : GameState::RUNNING;
                         startButton.text = (currentState == GameState::RUNNING) ? "Pause" : "Start";
                         eventHandled = true;
+                    } else if (clearButton.isClicked(mouseX, mouseY) && currentState == GameState::PRE_GAME) {
+                        clearGrid(grid);
+                        eventHandled = true;
                     }
                     break;
                 }
@@ -144,6 +148,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 case SDL_MULTIGESTURE: {
+                    input.inMultiGesture = true;
                     if (event.mgesture.dDist > 0.0001f || event.mgesture.dDist < -0.0001f) { // Lowered threshold
                         int w, h;
                         SDL_GetWindowSize(window, &w, &h);
@@ -159,7 +164,10 @@ int main(int argc, char *argv[]) {
             if (!eventHandled) {
                 switch (currentState) {
                     case GameState::PRE_GAME:
-                        handlePreGameEvent(event, grid, input, window);
+                        handlePreGameEvent(event, grid, input, window, true);
+                        break;
+                    case GameState::RUNNING:
+                        handlePreGameEvent(event, grid, input, window, false); // Allow panning/dragging but not toggling
                         break;
                     case GameState::SETTINGS:
                         handleSettingsEvent(event);
@@ -182,6 +190,7 @@ int main(int argc, char *argv[]) {
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
         startButton.rect.x = w - 160;
+        clearButton.rect.x = w / 2 - 75;
 
         SDL_SetRenderDrawColor(renderer, 10, 10, 20, 255);
         SDL_RenderClear(renderer);
@@ -195,9 +204,17 @@ int main(int argc, char *argv[]) {
                 renderSettings(renderer, font);
                 break;
         }
+        
+        // Set clear button color based on state
+        bool isClearEnabled = (currentState == GameState::PRE_GAME);
+        SDL_Color disabledColor = {100, 100, 100, 255};
+        SDL_Color enabledColor = {255, 255, 255, 255};
+        clearButton.borderColor = isClearEnabled ? enabledColor : disabledColor;
+        clearButton.textColor = isClearEnabled ? enabledColor : disabledColor;
 
         settingsButton.draw(renderer, font);
         startButton.draw(renderer, font);
+        clearButton.draw(renderer, font);
 
         SDL_RenderPresent(renderer);
     }

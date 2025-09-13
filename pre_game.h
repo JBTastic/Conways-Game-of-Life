@@ -20,6 +20,7 @@ struct InputState
 
     bool fingerDown = false;
     bool isPanning = false;
+    bool inMultiGesture = false; // To prevent conflicts between gesture and motion
     float startFingerX = 0.0f;
     float startFingerY = 0.0f;
     float lastFingerX = 0.0f;
@@ -31,6 +32,15 @@ inline Grid initGrid(int rows, int cols, int cellSize)
 {
     return Grid{std::vector<std::vector<bool>>(rows, std::vector<bool>(cols, false)),
                 rows, cols, cellSize, 0, 0};
+}
+
+// Clear all cells in the grid
+inline void clearGrid(Grid &grid) {
+    for (int row = 0; row < grid.rows; ++row) {
+        for (int col = 0; col < grid.cols; ++col) {
+            grid.cells[row][col] = false;
+        }
+    }
 }
 
 // Toggle cell at position
@@ -72,14 +82,14 @@ inline void renderGrid(SDL_Renderer *renderer, const Grid &grid)
 }
 
 // Handle mouse and touch events for pre-game (placing cells + panning)
-inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, SDL_Window *window)
+inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, SDL_Window *window, bool allowToggle)
 {
     const float PAN_THRESHOLD = 0.005f;
 
     switch (event.type)
     {
     case SDL_MOUSEBUTTONDOWN:
-        if (event.button.button == SDL_BUTTON_LEFT)
+        if (allowToggle && event.button.button == SDL_BUTTON_LEFT)
         {
             toggleCell(grid, event.button.x - grid.offsetX, event.button.y - grid.offsetY);
         }
@@ -108,11 +118,12 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
     case SDL_FINGERDOWN:
         input.fingerDown = true;
         input.isPanning = false;
+        input.inMultiGesture = false; // Reset gesture flag on new finger down
         input.startFingerX = input.lastFingerX = event.tfinger.x;
         input.startFingerY = input.lastFingerY = event.tfinger.y;
         break;
     case SDL_FINGERUP:
-        if (!input.isPanning)
+        if (allowToggle && !input.isPanning && !input.inMultiGesture)
         {
             int w, h;
             SDL_GetWindowSize(window, &w, &h);
@@ -120,9 +131,10 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
         }
         input.fingerDown = false;
         input.isPanning = false;
+        input.inMultiGesture = false; // Reset gesture flag
         break;
     case SDL_FINGERMOTION:
-        if (input.fingerDown)
+        if (input.fingerDown && !input.inMultiGesture)
         {
             float dxf = event.tfinger.x - input.startFingerX;
             float dyf = event.tfinger.y - input.startFingerY;
