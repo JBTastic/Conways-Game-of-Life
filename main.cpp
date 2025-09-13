@@ -10,7 +10,7 @@
 
 const int SCREEN_WIDTH = 1280;
 const int SCREEN_HEIGHT = 720;
-const float MIN_CELL_SIZE_F = 2.0f;
+const float MIN_CELL_SIZE_F = 4.0f;
 const float MAX_CELL_SIZE_F = 100.0f;
 
 // HELPER FUNCTION FOR ZOOMING
@@ -143,14 +143,15 @@ int main(int argc, char *argv[])
                 }
                 else
                 { // Pan with scroll
+                    const int PAN_SPEED = 40;
                     if (mod & KMOD_SHIFT)
                     { // Shift+scroll for horizontal panning
-                        grid.offsetX += event.wheel.y * grid.cellSize;
+                        grid.offsetX += event.wheel.y * PAN_SPEED;
                     }
                     else
                     {
-                        grid.offsetX -= event.wheel.x * grid.cellSize;
-                        grid.offsetY += event.wheel.y * grid.cellSize;
+                        grid.offsetX -= event.wheel.x * PAN_SPEED;
+                        grid.offsetY += event.wheel.y * PAN_SPEED;
                     }
                 }
                 eventHandled = true;
@@ -187,7 +188,7 @@ int main(int argc, char *argv[])
                 { // Lowered threshold
                     int w, h;
                     SDL_GetWindowSize(window, &w, &h);
-                    float zoomFactor = 1.0f + (event.mgesture.dDist * 4.0f); // Further amplified factor
+                    float zoomFactor = 1.0f + (event.mgesture.dDist * 8.0f); // Further amplified factor
                     zoom(grid, preciseCellSize, zoomFactor, event.mgesture.x * w, event.mgesture.y * h);
                     eventHandled = true;
                 }

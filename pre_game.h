@@ -2,6 +2,8 @@
 #include <SDL2/SDL.h>
 #include <vector>
 
+const int MIN_CELL_SIZE_FOR_TOGGLE = 8;
+
 struct Grid
 {
     std::vector<std::vector<bool>> cells;
@@ -46,6 +48,9 @@ inline void clearGrid(Grid &grid) {
 // Toggle cell at position
 inline void toggleCell(Grid &grid, int x, int y)
 {
+    // Do not allow toggling if zoomed out too far
+    if (grid.cellSize < MIN_CELL_SIZE_FOR_TOGGLE) return;
+
     int col = x / grid.cellSize;
     int row = y / grid.cellSize;
     if (row >= 0 && row < grid.rows && col >= 0 && col < grid.cols)
@@ -71,21 +76,21 @@ inline void renderGrid(SDL_Renderer *renderer, const Grid &grid)
         }
     }
 
-    // Draw grid lines
-    for (int x = 0; x <= grid.cols * grid.cellSize; x += grid.cellSize)
-        SDL_RenderDrawLine(renderer, x + grid.offsetX, 0 + grid.offsetY,
-                           x + grid.offsetX, grid.rows * grid.cellSize + grid.offsetY);
+    // Draw grid lines only if cells are large enough
+    if (grid.cellSize >= 4) {
+        for (int x = 0; x <= grid.cols * grid.cellSize; x += grid.cellSize)
+            SDL_RenderDrawLine(renderer, x + grid.offsetX, 0 + grid.offsetY,
+                            x + grid.offsetX, grid.rows * grid.cellSize + grid.offsetY);
 
-    for (int y = 0; y <= grid.rows * grid.cellSize; y += grid.cellSize)
-        SDL_RenderDrawLine(renderer, 0 + grid.offsetX, y + grid.offsetY,
-                           grid.cols * grid.cellSize + grid.offsetX, y + grid.offsetY);
+        for (int y = 0; y <= grid.rows * grid.cellSize; y += grid.cellSize)
+            SDL_RenderDrawLine(renderer, 0 + grid.offsetX, y + grid.offsetY,
+                            grid.cols * grid.cellSize + grid.offsetX, y + grid.offsetY);
+    }
 }
 
 // Handle mouse and touch events for pre-game (placing cells + panning)
 inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, SDL_Window *window, bool allowToggle)
 {
-    const float PAN_THRESHOLD = 0.005f;
-
     switch (event.type)
     {
     case SDL_MOUSEBUTTONDOWN:
@@ -116,8 +121,9 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
         }
         break;
     case SDL_FINGERDOWN:
+        // Reset gesture flag on the first finger of a new interaction
         if (SDL_GetNumTouchFingers(event.tfinger.touchId) == 1) {
-            input.inMultiGesture = false; // Reset on first finger down
+            input.inMultiGesture = false;
         }
         input.fingerDown = true;
         input.isPanning = false;
@@ -133,18 +139,25 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
         }
         input.fingerDown = false;
         input.isPanning = false;
-        // Only reset gesture flag when the last finger is lifted
-        if (SDL_GetNumTouchFingers(event.tfinger.touchId) == 0) {
-            input.inMultiGesture = false;
-        }
         break;
     case SDL_FINGERMOTION:
         if (input.fingerDown && !input.inMultiGesture)
         {
-            float dxf = event.tfinger.x - input.startFingerX;
-            float dyf = event.tfinger.y - input.startFingerY;
-            if (!input.isPanning && (std::abs(dxf) > PAN_THRESHOLD || std::abs(dyf) > PAN_THRESHOLD))
-                input.isPanning = true;
+            if (!input.isPanning) {
+                int w, h;
+                SDL_GetWindowSize(window, &w, &h);
+                // Convert normalized finger movement to pixel distance
+                float dx_pixels = (event.tfinger.x - input.startFingerX) * w;
+                float dy_pixels = (event.tfinger.y - input.startFingerY) * h;
+
+                // Define threshold as a fraction of the cell size, making it dynamic
+                float pixel_threshold = grid.cellSize * 0.4f; // Move 40% of a cell to be a pan
+
+                if (std::abs(dx_pixels) > pixel_threshold || std::abs(dy_pixels) > pixel_threshold) {
+                    input.isPanning = true;
+                }
+            }
+            
             if (input.isPanning)
             {
                 int w, h;
