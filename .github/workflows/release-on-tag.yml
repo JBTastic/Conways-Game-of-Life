@@ -86,10 +86,12 @@ jobs:
               run: |
                   ARCHIVE_NAME="conways-game-of-life-${{ matrix.os }}-${{ matrix.arch }}"
                   if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-                    7z a "${ARCHIVE_NAME}.zip" conways-game-of-life.exe SDL2.dll SDL2_ttf.dll SDL2_image.dll
+                    # Füge sans.ttf zum ZIP-Archiv hinzu
+                    7z a "${ARCHIVE_NAME}.zip" conways-game-of-life.exe SDL2.dll SDL2_ttf.dll SDL2_image.dll sans.ttf
                   else
                     BIN_NAME="conways-game-of-life${{ matrix.ext }}"
-                    tar -czf "${ARCHIVE_NAME}.tar.gz" "$BIN_NAME"
+                    # Füge sans.ttf zum TAR-Archiv hinzu
+                    tar -czf "${ARCHIVE_NAME}.tar.gz" "$BIN_NAME" sans.ttf
                   fi
 
             - uses: actions/upload-artifact@v4
@@ -102,15 +104,18 @@ jobs:
     release:
         needs: build
         runs-on: ubuntu-latest
+        permissions:
+            contents: write
         steps:
             - name: Download all artifacts
               uses: actions/download-artifact@v4
               with:
                   path: ./artifacts
 
+            - name: List files in artifacts directory
+              run: ls -R ./artifacts
+
             - name: Create Release
               uses: softprops/action-gh-release@v1
               with:
                   files: ./artifacts/**/*
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
