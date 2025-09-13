@@ -1,95 +1,95 @@
 name: Build and Release on Tag
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+    push:
+        tags:
+            - "v*.*.*"
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        config:
-          - os: ubuntu-latest
-            arch: x86_64
-            artifact_name: conways-game-of-life-linux-amd64
-            asset_name: conways-game-of-life-linux-amd64.tar.gz
-            package_cmd: tar -czf
-          - os: windows-latest
-            arch: x86_64
-            artifact_name: conways-game-of-life-windows-amd64
-            asset_name: conways-game-of-life-windows-amd64.zip
-            package_cmd: zip
-          - os: macos-latest
-            arch: x86_64
-            artifact_name: conways-game-of-life-darwin-amd64
-            asset_name: conways-game-of-life-darwin-amd64.tar.gz
-            package_cmd: tar -czf
-          - os: macos-latest
-            arch: arm64
-            artifact_name: conways-game-of-life-darwin-arm64
-            asset_name: conways-game-of-life-darwin-arm64.tar.gz
-            package_cmd: tar -czf
+    build:
+        strategy:
+            matrix:
+                config:
+                    - os: ubuntu-latest
+                      arch: x86_64
+                      artifact_name: conways-game-of-life-linux-amd64
+                      asset_name: conways-game-of-life-linux-amd64.tar.gz
+                      package_cmd: tar -czf
+                    - os: windows-latest
+                      arch: x86_64
+                      artifact_name: conways-game-of-life-windows-amd64
+                      asset_name: conways-game-of-life-windows-amd64.zip
+                      package_cmd: zip
+                    - os: macos-latest
+                      arch: x86_64
+                      artifact_name: conways-game-of-life-darwin-amd64
+                      asset_name: conways-game-of-life-darwin-amd64.tar.gz
+                      package_cmd: tar -czf
+                    - os: macos-latest
+                      arch: arm64
+                      artifact_name: conways-game-of-life-darwin-arm64
+                      asset_name: conways-game-of-life-darwin-arm64.tar.gz
+                      package_cmd: tar -czf
 
-    runs-on: ${{ matrix.config.os }}
+        runs-on: ${{ matrix.config.os }}
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
 
-      - name: Setup SDL
-        uses: aminya/setup-sdl@v3
-        with:
-          sdl-version: '2'
-          sdl-ttf-version: '2'
-          sdl-image-version: '2'
+            - name: Setup SDL
+              uses: libsdl-org/setup-sdl@main
+              with:
+                  version: "2-latest"
+                  version-sdl-image: "2-latest"
+                  version-sdl-ttf: "2-latest"
 
-      - name: Build binary
-        run: |
-          BIN_NAME="conways-game-of-life"
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            BIN_NAME="${BIN_NAME}.exe"
-            g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
-          elif [ "${{ runner.os }}" == "macOS" ]; then
-            clang++ -std=c++17 -arch ${{ matrix.config.arch }} *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
-          else
-            g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
-          fi
-          echo "BIN_PATH=${BIN_NAME}" >> $GITHUB_ENV
+            - name: Build binary
+              run: |
+                  BIN_NAME="conways-game-of-life"
+                  if [ "${{ runner.os }}" == "Windows" ]; then
+                    BIN_NAME="${BIN_NAME}.exe"
+                    g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                  elif [ "${{ runner.os }}" == "macOS" ]; then
+                    clang++ -std=c++17 -arch ${{ matrix.config.arch }} *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                  else
+                    g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                  fi
+                  echo "BIN_PATH=${BIN_NAME}" >> $GITHUB_ENV
 
-      - name: Package artifact
-        run: |
-          chmod +x "${{ env.BIN_PATH }}"
-          ${{ matrix.config.package_cmd }} "${{ matrix.config.asset_name }}" "${{ env.BIN_PATH }}" icon.png sans.ttf
+            - name: Package artifact
+              run: |
+                  chmod +x "${{ env.BIN_PATH }}"
+                  ${{ matrix.config.package_cmd }} "${{ matrix.config.asset_name }}" "${{ env.BIN_PATH }}" icon.png sans.ttf
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.config.artifact_name }}
-          path: ${{ matrix.config.asset_name }}
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.config.artifact_name }}
+                  path: ${{ matrix.config.asset_name }}
 
-  release:
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
+    release:
+        needs: [build]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Download all build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: ./artifacts
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Create GitHub Release
+              id: create_release
+              uses: softprops/action-gh-release@v1
+              with:
+                  tag_name: ${{ github.ref_name }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload release assets
-        run: |
-          for dir in ./artifacts/*; do
-            file=$(find "$dir" -type f | head -n 1)
-            echo "Uploading $file"
-            gh release upload ${{ github.ref_name }} "$file"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Upload release assets
+              run: |
+                  for dir in ./artifacts/*; do
+                    file=$(find "$dir" -type f | head -n 1)
+                    echo "Uploading $file"
+                    gh release upload ${{ github.ref_name }} "$file"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
