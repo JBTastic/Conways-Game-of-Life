@@ -33,20 +33,20 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            # Linux: install SDL2 from apt
+            # Linux
             - name: Install SDL2 on Linux
               if: matrix.os == 'ubuntu-latest'
               run: |
                   sudo apt-get update
                   sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev zip tar
 
-            # macOS: install SDL2 via brew
+            # macOS
             - name: Install SDL2 on macOS
               if: matrix.os == 'macos-latest'
               run: |
                   brew install sdl2 sdl2_ttf sdl2_image
 
-            # Windows: install SDL2 via vcpkg
+            # Windows
             - name: Install vcpkg and SDL2 on Windows
               if: matrix.os == 'windows-latest'
               shell: pwsh
@@ -62,11 +62,19 @@ jobs:
 
                   if [[ "${{ matrix.osname }}" == "linux" ]]; then
                     g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+
                   elif [[ "${{ matrix.osname }}" == "darwin" ]]; then
-                    clang++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                    # Brew installiert nach /usr/local oder /opt/homebrew
+                    INCLUDE_PATH="$(brew --prefix)/include"
+                    LIB_PATH="$(brew --prefix)/lib"
+                    clang++ -std=c++17 *.cpp -o "$BIN_NAME" -I"$INCLUDE_PATH/SDL2" -L"$LIB_PATH" -lSDL2 -lSDL2_ttf -lSDL2_image
+
                   elif [[ "${{ matrix.osname }}" == "windows" ]]; then
                     ./vcpkg/vcpkg integrate install
-                    x86_64-w64-mingw32-g++ -std=c++17 *.cpp -o "$BIN_NAME" -I"$VCPKG_ROOT/installed/x64-windows/include" -L"$VCPKG_ROOT/installed/x64-windows/lib" -lSDL2 -lSDL2_ttf -lSDL2_image
+                    x86_64-w64-mingw32-g++ -std=c++17 *.cpp -o "$BIN_NAME" \
+                      -I"$VCPKG_ROOT/installed/x64-windows/include" \
+                      -L"$VCPKG_ROOT/installed/x64-windows/lib" \
+                      -lSDL2 -lSDL2_ttf -lSDL2_image
                   fi
 
                   chmod +x "$BIN_NAME" || true
@@ -86,32 +94,3 @@ jobs:
                   path: |
                       conways-game-of-life-${{ matrix.osname }}-${{ matrix.arch }}.tar.gz
                       conways-game-of-life-${{ matrix.osname }}-${{ matrix.arch }}.zip
-
-    release:
-        needs: build
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-
-            - name: Download build artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  path: ./artifacts
-
-            - name: Create GitHub Release
-              id: create_release
-              uses: softprops/action-gh-release@v1
-              with:
-                  tag_name: ${{ github.ref_name }}
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Upload release assets
-              run: |
-                  for dir in ./artifacts/*; do
-                    file=$(find "$dir" -type f | head -n 1)
-                    echo "Uploading $file"
-                    gh release upload ${{ github.ref_name }} "$file"
-                  done
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
