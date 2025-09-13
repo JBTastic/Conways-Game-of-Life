@@ -30,27 +30,44 @@ struct InputState
     float lastFingerY = 0.0f;
 };
 
+// Jumps the camera to the center of the grid
+inline void jumpToCenter(Grid &grid, int windowWidth, int windowHeight)
+{
+    int gridCenterPixelX = (grid.cols / 2) * grid.cellSize;
+    int gridCenterPixelY = (grid.rows / 2) * grid.cellSize;
+
+    grid.offsetX = windowWidth / 2 - gridCenterPixelX;
+    grid.offsetY = windowHeight / 2 - gridCenterPixelY;
+}
+
 // Centralized function to handle panning with constraints
-inline void panGrid(Grid &grid, int dx, int dy, int windowWidth, int windowHeight) {
+inline void panGrid(Grid &grid, int dx, int dy, int windowWidth, int windowHeight)
+{
     int gridPixelWidth = grid.cols * grid.cellSize;
     int gridPixelHeight = grid.rows * grid.cellSize;
 
     // Define the soft boundaries
-    int minX = -gridPixelWidth + grid.cellSize; // Keep at least one cell column visible
-    int maxX = windowWidth - grid.cellSize;    // Keep at least one cell column visible
-    int minY = -gridPixelHeight + grid.cellSize; // Keep at least one cell row visible
-    int maxY = windowHeight - grid.cellSize;     // Keep at least one cell row visible
+    int minX = -gridPixelWidth + grid.cellSize;
+    int maxX = windowWidth - grid.cellSize;
+    int minY = -gridPixelHeight + grid.cellSize;
+    int maxY = windowHeight - grid.cellSize;
 
     // If the grid is smaller than the window, center it and don't pan
-    if (gridPixelWidth < windowWidth) {
+    if (gridPixelWidth < windowWidth)
+    {
         grid.offsetX = (windowWidth - gridPixelWidth) / 2;
-    } else {
+    }
+    else
+    {
         grid.offsetX = std::max(minX, std::min(maxX, grid.offsetX + dx));
     }
 
-    if (gridPixelHeight < windowHeight) {
+    if (gridPixelHeight < windowHeight)
+    {
         grid.offsetY = (windowHeight - gridPixelHeight) / 2;
-    } else {
+    }
+    else
+    {
         grid.offsetY = std::max(minY, std::min(maxY, grid.offsetY + dy));
     }
 }
@@ -63,9 +80,12 @@ inline Grid initGrid(int rows, int cols, int cellSize)
 }
 
 // Clear all cells in the grid
-inline void clearGrid(Grid &grid) {
-    for (int row = 0; row < grid.rows; ++row) {
-        for (int col = 0; col < grid.cols; ++col) {
+inline void clearGrid(Grid &grid)
+{
+    for (int row = 0; row < grid.rows; ++row)
+    {
+        for (int col = 0; col < grid.cols; ++col)
+        {
             grid.cells[row][col] = false;
         }
     }
@@ -75,7 +95,8 @@ inline void clearGrid(Grid &grid) {
 inline void toggleCell(Grid &grid, int x, int y)
 {
     // Do not allow toggling if zoomed out too far
-    if (grid.cellSize < MIN_CELL_SIZE_FOR_TOGGLE) return;
+    if (grid.cellSize < MIN_CELL_SIZE_FOR_TOGGLE)
+        return;
 
     int col = x / grid.cellSize;
     int row = y / grid.cellSize;
@@ -86,8 +107,8 @@ inline void toggleCell(Grid &grid, int x, int y)
 // Render the grid
 inline void renderGrid(SDL_Renderer *renderer, const Grid &grid)
 {
+    // Draw cells
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-
     for (int row = 0; row < grid.rows; row++)
     {
         for (int col = 0; col < grid.cols; col++)
@@ -103,14 +124,26 @@ inline void renderGrid(SDL_Renderer *renderer, const Grid &grid)
     }
 
     // Draw grid lines only if cells are large enough
-    if (grid.cellSize >= 4) {
+    if (grid.cellSize >= 4)
+    {
+        SDL_SetRenderDrawColor(renderer, 200, 200, 200, 200); // White for grid lines
         for (int x = 0; x <= grid.cols * grid.cellSize; x += grid.cellSize)
             SDL_RenderDrawLine(renderer, x + grid.offsetX, 0 + grid.offsetY,
-                            x + grid.offsetX, grid.rows * grid.cellSize + grid.offsetY);
+                               x + grid.offsetX, grid.rows * grid.cellSize + grid.offsetY);
 
         for (int y = 0; y <= grid.rows * grid.cellSize; y += grid.cellSize)
             SDL_RenderDrawLine(renderer, 0 + grid.offsetX, y + grid.offsetY,
-                            grid.cols * grid.cellSize + grid.offsetX, y + grid.offsetY);
+                               grid.cols * grid.cellSize + grid.offsetX, y + grid.offsetY);
+    }
+
+    // Draw center marker
+    if (grid.cellSize >= 4)
+    {
+        int centerX = (grid.cols / 2) * grid.cellSize + grid.offsetX;
+        int centerY = (grid.rows / 2) * grid.cellSize + grid.offsetY;
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red for center marker
+        SDL_RenderDrawLine(renderer, centerX - 5, centerY, centerX + 5, centerY);
+        SDL_RenderDrawLine(renderer, centerX, centerY - 5, centerX, centerY + 5);
     }
 }
 
@@ -147,7 +180,8 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
         break;
     case SDL_FINGERDOWN:
         // Reset gesture flag on the first finger of a new interaction
-        if (SDL_GetNumTouchFingers(event.tfinger.touchId) == 1) {
+        if (SDL_GetNumTouchFingers(event.tfinger.touchId) == 1)
+        {
             input.inMultiGesture = false;
         }
         input.fingerDown = true;
@@ -168,7 +202,8 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
     case SDL_FINGERMOTION:
         if (input.fingerDown && !input.inMultiGesture)
         {
-            if (!input.isPanning) {
+            if (!input.isPanning)
+            {
                 int w, h;
                 SDL_GetWindowSize(window, &w, &h);
                 // Convert normalized finger movement to pixel distance
@@ -178,11 +213,12 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
                 // Define threshold as a fraction of the cell size, making it dynamic
                 float pixel_threshold = grid.cellSize * 0.4f; // Move 40% of a cell to be a pan
 
-                if (std::abs(dx_pixels) > pixel_threshold || std::abs(dy_pixels) > pixel_threshold) {
+                if (std::abs(dx_pixels) > pixel_threshold || std::abs(dy_pixels) > pixel_threshold)
+                {
                     input.isPanning = true;
                 }
             }
-            
+
             if (input.isPanning)
             {
                 int w, h;

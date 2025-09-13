@@ -43,18 +43,8 @@ void zoom(Grid &grid, float &preciseCellSize, float zoomFactor, int mouseX, int 
 int main(int argc, char *argv[])
 {
     // INITIALIZATION
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        std::cerr << "SDL could not be initialized! SDL_Error: " << SDL_GetError() << std::endl;
-        return 1;
-    }
-
-    if (TTF_Init() == -1)
-    {
-        std::cerr << "SDL_ttf could not be initialized! TTF_Error: " << TTF_GetError() << std::endl;
-        SDL_Quit();
-        return 1;
-    }
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) return 1;
+    if (TTF_Init() == -1) return 1;
 
     SDL_Window *window = SDL_CreateWindow("Conway's Game of Life",
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -64,11 +54,14 @@ int main(int argc, char *argv[])
     // FONT AND UI
     TTF_Font *font = TTF_OpenFont("sans.ttf", 24);
 
+    // UI Elements
     Button settingsButton(10, 10, 150, 40, "Settings");
     Button startButton(SCREEN_WIDTH - 160, 10, 150, 40, "Start");
-    Button clearButton(SCREEN_WIDTH / 2 - 75, 10, 150, 40, "Clear");
+    Button clearButton(SCREEN_WIDTH / 2 - 165, 10, 150, 40, "Clear");
+    Button centerButton(SCREEN_WIDTH / 2 + 15, 10, 150, 40, "Center");
+    Button invertScrollCheckbox(100, 100, 450, 40, "[ ] Invert Mouse Scrolling");
 
-    // GAME SETUP
+    // GAME AND APP STATE
     GameState currentState = GameState::PRE_GAME;
     Grid grid = initGrid(200, 200, 20);
     float preciseCellSize = (float)grid.cellSize;
@@ -76,6 +69,7 @@ int main(int argc, char *argv[])
     bool running = true;
     Uint32 lastUpdateTime = 0;
     const Uint32 updateInterval = 100;
+    bool invertMouseScrolling = false;
 
     // MAIN LOOP
     while (running)
@@ -85,185 +79,138 @@ int main(int argc, char *argv[])
         {
             bool eventHandled = false;
 
+            // Global non-state-specific events
             switch (event.type)
             {
-            case SDL_QUIT:
-                running = false;
-                eventHandled = true;
-                break;
+                case SDL_QUIT:
+                    running = false;
+                    eventHandled = true;
+                    break;
+                case SDL_KEYDOWN: {
+                    SDL_Keymod mod = SDL_GetModState();
+                    if (mod & KMOD_CTRL) {
+                        if (event.key.keysym.sym == SDLK_EQUALS || event.key.keysym.sym == SDLK_PLUS) {
+                            int w, h; SDL_GetWindowSize(window, &w, &h);
+                            zoom(grid, preciseCellSize, 1.25f, w / 2, h / 2);
+                            eventHandled = true;
+                        } else if (event.key.keysym.sym == SDLK_MINUS) {
+                            int w, h; SDL_GetWindowSize(window, &w, &h);
+                            zoom(grid, preciseCellSize, 0.8f, w / 2, h / 2);
+                            eventHandled = true;
+                        }
+                    }
+                    break;
+                }
+                case SDL_MULTIGESTURE: {
+                    input.inMultiGesture = true;
+                    if (event.mgesture.dDist > 0.0001f || event.mgesture.dDist < -0.0001f) { 
+                        int w, h; SDL_GetWindowSize(window, &w, &h);
+                        float zoomFactor = 1.0f + (event.mgesture.dDist * 8.0f);
+                        zoom(grid, preciseCellSize, zoomFactor, event.mgesture.x * w, event.mgesture.y * h);
+                        eventHandled = true;
+                    }
+                    break;
+                }
+                case SDL_MOUSEWHEEL: {
+                    SDL_Keymod mod = SDL_GetModState();
+                    int mouseX, mouseY; SDL_GetMouseState(&mouseX, &mouseY);
+                    int scroll_direction = invertMouseScrolling ? -1 : 1;
+                    int wheel_y = event.wheel.y * scroll_direction;
+                    int wheel_x = event.wheel.x * scroll_direction;
 
-            // TOUCH AND MOUSE CLICK HANDLING
-            case SDL_MOUSEBUTTONDOWN:
-            case SDL_FINGERUP:
-            {
+                    if (mod & KMOD_CTRL) { // Zoom
+                        float zoomFactor = (wheel_y > 0) ? 1.1f : 0.9f;
+                        zoom(grid, preciseCellSize, zoomFactor, mouseX, mouseY);
+                    } else { // Pan
+                        const int PAN_SPEED = 40;
+                        int dx = 0, dy = 0;
+                        if (mod & KMOD_SHIFT) { dx = -wheel_y * PAN_SPEED; } 
+                        else { dx = -wheel_x * PAN_SPEED; dy = wheel_y * PAN_SPEED; }
+                        int w, h; SDL_GetWindowSize(window, &w, &h);
+                        panGrid(grid, dx, dy, w, h);
+                    }
+                    eventHandled = true;
+                    break;
+                }
+            }
+
+            if (eventHandled) continue;
+
+            // Handle clicks, which are state-dependent
+            if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_FINGERUP) {
                 int mouseX, mouseY;
-                if (event.type == SDL_MOUSEBUTTONDOWN)
-                {
-                    mouseX = event.button.x;
-                    mouseY = event.button.y;
-                }
-                else
-                { // Fingerup
-                    int w, h;
-                    SDL_GetWindowSize(window, &w, &h);
-                    mouseX = event.tfinger.x * w;
-                    mouseY = event.tfinger.y * h;
-                }
-
-                if (settingsButton.isClicked(mouseX, mouseY))
-                {
+                if (event.type == SDL_MOUSEBUTTONDOWN) { mouseX = event.button.x; mouseY = event.button.y; }
+                else { int w, h; SDL_GetWindowSize(window, &w, &h); mouseX = event.tfinger.x * w; mouseY = event.tfinger.y * h; }
+                
+                // Settings button is always active, but changes text
+                if (settingsButton.isClicked(mouseX, mouseY)) {
                     currentState = (currentState == GameState::SETTINGS) ? GameState::PRE_GAME : GameState::SETTINGS;
                     settingsButton.text = (currentState == GameState::SETTINGS) ? "Back" : "Settings";
                     eventHandled = true;
                 }
-                else if (startButton.isClicked(mouseX, mouseY))
-                {
-                    currentState = (currentState == GameState::RUNNING) ? GameState::PRE_GAME : GameState::RUNNING;
-                    startButton.text = (currentState == GameState::RUNNING) ? "Pause" : "Start";
-                    eventHandled = true;
-                }
-                else if (clearButton.isClicked(mouseX, mouseY) && currentState == GameState::PRE_GAME)
-                {
-                    clearGrid(grid);
-                    eventHandled = true;
-                }
-                break;
-            }
 
-            // ZOOM AND PAN HANDLING
-            case SDL_MOUSEWHEEL:
-            {
-                SDL_Keymod mod = SDL_GetModState();
-                int mouseX, mouseY;
-                SDL_GetMouseState(&mouseX, &mouseY);
-                if (mod & KMOD_CTRL)
-                { // Zoom with ctrl+scroll
-                    float zoomFactor = (event.wheel.y > 0) ? 1.1f : 0.9f;
-                    zoom(grid, preciseCellSize, zoomFactor, mouseX, mouseY);
-                }
-                else
-                { // Pan with scroll
-                    const int PAN_SPEED = 40;
-                    int dx = 0, dy = 0;
-
-                    if (mod & KMOD_SHIFT)
-                    { // Shift+scroll for horizontal panning
-                        dx = -event.wheel.y * PAN_SPEED;
-                    }
-                    else
-                    {
-                        dx = -event.wheel.x * PAN_SPEED;
-                        dy = event.wheel.y * PAN_SPEED;
-                    }
-                    int w, h;
-                    SDL_GetWindowSize(window, &w, &h);
-                    panGrid(grid, dx, dy, w, h);
-                }
-                eventHandled = true;
-                break;
-            }
-
-            case SDL_KEYDOWN:
-            {
-                SDL_Keymod mod = SDL_GetModState();
-                if (mod & KMOD_CTRL)
-                {
-                    if (event.key.keysym.sym == SDLK_EQUALS || event.key.keysym.sym == SDLK_PLUS)
-                    {
-                        int w, h;
-                        SDL_GetWindowSize(window, &w, &h);
-                        zoom(grid, preciseCellSize, 1.25f, w / 2, h / 2);
+                if (currentState == GameState::SETTINGS) {
+                    // In settings, pass click events to the settings handler
+                    handleSettingsEvent(event, invertMouseScrolling, invertScrollCheckbox);
+                } else {
+                    // In other states, check the main game buttons
+                    if (startButton.isClicked(mouseX, mouseY)) {
+                        currentState = (currentState == GameState::RUNNING) ? GameState::PRE_GAME : GameState::RUNNING;
+                        startButton.text = (currentState == GameState::RUNNING) ? "Pause" : "Start";
                         eventHandled = true;
-                    }
-                    else if (event.key.keysym.sym == SDLK_MINUS)
-                    {
-                        int w, h;
-                        SDL_GetWindowSize(window, &w, &h);
-                        zoom(grid, preciseCellSize, 0.8f, w / 2, h / 2);
+                    } else if (clearButton.isClicked(mouseX, mouseY) && currentState == GameState::PRE_GAME) {
+                        clearGrid(grid);
+                        eventHandled = true;
+                    } else if (centerButton.isClicked(mouseX, mouseY)) {
+                        int w, h; SDL_GetWindowSize(window, &w, &h);
+                        jumpToCenter(grid, w, h);
                         eventHandled = true;
                     }
                 }
-                break;
             }
 
-            case SDL_MULTIGESTURE:
-            {
-                input.inMultiGesture = true;
-                if (event.mgesture.dDist > 0.0001f || event.mgesture.dDist < -0.0001f)
-                { // Lowered threshold
-                    int w, h;
-                    SDL_GetWindowSize(window, &w, &h);
-                    float zoomFactor = 1.0f + (event.mgesture.dDist * 8.0f); // Further amplified factor
-                    zoom(grid, preciseCellSize, zoomFactor, event.mgesture.x * w, event.mgesture.y * h);
-                    eventHandled = true;
-                }
-                break;
-            }
-            }
+            if (eventHandled) continue;
 
-            // STATE-SPECIFIC EVENT HANDLING
-            if (!eventHandled)
-            {
-                switch (currentState)
-                {
-                case GameState::PRE_GAME:
-                    handlePreGameEvent(event, grid, input, window, true);
-                    break;
-                case GameState::RUNNING:
-                    handlePreGameEvent(event, grid, input, window, false); // Allow panning/dragging but not toggling
-                    break;
-                case GameState::SETTINGS:
-                    handleSettingsEvent(event);
-                    break;
-                default:
-                    break;
-                }
+            // Pass all other unhandled events to state-specific handlers
+            switch (currentState) {
+                case GameState::PRE_GAME: handlePreGameEvent(event, grid, input, window, true); break;
+                case GameState::RUNNING: handlePreGameEvent(event, grid, input, window, false); break;
+                case GameState::SETTINGS: /* Already handled above */ break;
             }
         }
 
         // LOGIC AND UPDATES
-        if (currentState == GameState::RUNNING)
-        {
+        if (currentState == GameState::RUNNING) {
             Uint32 currentTime = SDL_GetTicks();
-            if (currentTime - lastUpdateTime > updateInterval)
-            {
-                updateGrid(grid);
-                lastUpdateTime = currentTime;
-            }
+            if (currentTime - lastUpdateTime > updateInterval) { updateGrid(grid); lastUpdateTime = currentTime; }
         }
 
         // RENDERING
-        int w, h;
-        SDL_GetWindowSize(window, &w, &h);
-        startButton.rect.x = w - 160;
-        clearButton.rect.x = w / 2 - 75;
+        int w, h; SDL_GetWindowSize(window, &w, &h);
+        SDL_SetRenderDrawColor(renderer, 10, 10, 20, 255); SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, 10, 10, 20, 255);
-        SDL_RenderClear(renderer);
-
-        switch (currentState)
-        {
-        case GameState::PRE_GAME:
-        case GameState::RUNNING:
+        // Draw main content based on state
+        if (currentState == GameState::PRE_GAME || currentState == GameState::RUNNING) {
             renderGrid(renderer, grid);
-            break;
-        case GameState::SETTINGS:
-            renderSettings(renderer, font);
-            break;
+        } else { // SETTINGS
+            renderSettings(renderer, font, invertScrollCheckbox);
         }
 
-        // Set clear button color based on state
-        bool isClearEnabled = (currentState == GameState::PRE_GAME);
-        SDL_Color disabledColor = {100, 100, 100, 255};
-        SDL_Color enabledColor = {255, 255, 255, 255};
-        clearButton.borderColor = isClearEnabled ? enabledColor : disabledColor;
-        clearButton.textColor = isClearEnabled ? enabledColor : disabledColor;
-
+        // Draw UI on top
+        startButton.rect.x = w - 160;
+        clearButton.rect.x = w / 2 - 165;
+        centerButton.rect.x = w / 2 + 15;
         settingsButton.draw(renderer, font);
-        startButton.draw(renderer, font);
-        if (currentState != GameState::SETTINGS)
-        {
+        
+        if (currentState != GameState::SETTINGS) {
+            bool isClearEnabled = (currentState == GameState::PRE_GAME);
+            SDL_Color disabledColor = {100, 100, 100, 255}; SDL_Color enabledColor = {255, 255, 255, 255};
+            clearButton.borderColor = isClearEnabled ? enabledColor : disabledColor;
+            clearButton.textColor = isClearEnabled ? enabledColor : disabledColor;
+            
+            startButton.draw(renderer, font);
             clearButton.draw(renderer, font);
+            centerButton.draw(renderer, font);
         }
 
         SDL_RenderPresent(renderer);
