@@ -29,26 +29,34 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Install zip and tar
-              run: sudo apt-get update && sudo apt-get install -y zip tar
+            # Install SDL2
+            - name: Install SDL2 and dependencies
+              if: matrix.os == 'linux'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev zip tar
 
-            - name: Install g++ cross-compilers
+            # Windows/Mac Compiler and Zip/Tar preparation
+            - name: Install compilers for cross-build
               run: |
                   if [[ "${{ matrix.os }}" == "windows" ]]; then
-                    sudo apt-get install -y g++-mingw-w64-x86-64
+                    sudo apt-get update
+                    sudo apt-get install -y g++-mingw-w64-x86-64 zip
                   elif [[ "${{ matrix.os }}" == "darwin" ]]; then
-                    sudo apt-get install -y clang
+                    sudo apt-get update
+                    sudo apt-get install -y clang tar
                   fi
 
             - name: Build binary and create archive
               run: |
                   BIN_NAME="conways-game-of-life${{ matrix.ext }}"
 
-                  # Determine compiler and flags
+                  # Compiler-Befehle nach OS
                   if [[ "${{ matrix.os }}" == "linux" ]]; then
                     g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
                   elif [[ "${{ matrix.os }}" == "windows" ]]; then
-                    x86_64-w64-mingw32-g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                    # Hinweis: SDL2 muss hier separat eingebunden werden
+                    x86_64-w64-mingw32-g++ -std=c++17 *.cpp -o "$BIN_NAME"
                   elif [[ "${{ matrix.os }}" == "darwin" ]]; then
                     if [[ "${{ matrix.arch }}" == "amd64" ]]; then
                       clang++ -std=c++17 -arch x86_64 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
@@ -59,7 +67,6 @@ jobs:
 
                   chmod +x "$BIN_NAME" || true
 
-                  # Archive name
                   ARCHIVE_NAME="conways-game-of-life-${{ matrix.os }}-${{ matrix.arch }}"
 
                   if [[ "${{ matrix.os }}" == "linux" || "${{ matrix.os }}" == "darwin" ]]; then
