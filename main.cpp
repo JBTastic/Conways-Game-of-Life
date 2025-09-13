@@ -117,9 +117,52 @@ int main(int argc, char *argv[])
             switch (event.type)
             {
                 case SDL_QUIT: running = false; eventHandled = true; break;
-                case SDL_KEYDOWN: { /* ... Keydown logic ... */ break; }
-                case SDL_MULTIGESTURE: { /* ... Multigesture logic ... */ break; }
-                case SDL_MOUSEWHEEL: { /* ... Mousewheel logic ... */ break; }
+                case SDL_KEYDOWN: {
+                    SDL_Keymod mod = SDL_GetModState();
+                    if (mod & KMOD_CTRL) {
+                        if (event.key.keysym.sym == SDLK_EQUALS || event.key.keysym.sym == SDLK_PLUS) {
+                            int w, h; SDL_GetWindowSize(window, &w, &h);
+                            zoom(grid, preciseCellSize, 1.25f, w / 2, h / 2);
+                            eventHandled = true;
+                        } else if (event.key.keysym.sym == SDLK_MINUS) {
+                            int w, h; SDL_GetWindowSize(window, &w, &h);
+                            zoom(grid, preciseCellSize, 0.8f, w / 2, h / 2);
+                            eventHandled = true;
+                        }
+                    }
+                    break;
+                }
+                case SDL_MULTIGESTURE: {
+                    input.inMultiGesture = true;
+                    if (event.mgesture.dDist > 0.0001f || event.mgesture.dDist < -0.0001f) { 
+                        int w, h; SDL_GetWindowSize(window, &w, &h);
+                        float zoomFactor = 1.0f + (event.mgesture.dDist * 8.0f);
+                        zoom(grid, preciseCellSize, zoomFactor, event.mgesture.x * w, event.mgesture.y * h);
+                        eventHandled = true;
+                    }
+                    break;
+                }
+                case SDL_MOUSEWHEEL: {
+                    SDL_Keymod mod = SDL_GetModState();
+                    int mouseX, mouseY; SDL_GetMouseState(&mouseX, &mouseY);
+                    int scroll_direction = invertMouseScrolling ? -1 : 1;
+                    int wheel_y = event.wheel.y * scroll_direction;
+                    int wheel_x = event.wheel.x * scroll_direction;
+
+                    if (mod & KMOD_CTRL) { // Zoom
+                        float zoomFactor = (wheel_y > 0) ? 1.1f : 0.9f;
+                        zoom(grid, preciseCellSize, zoomFactor, mouseX, mouseY);
+                    } else { // Pan
+                        const int PAN_SPEED = 40;
+                        int dx = 0, dy = 0;
+                        if (mod & KMOD_SHIFT) { dx = -wheel_y * PAN_SPEED; } 
+                        else { dx = -wheel_x * PAN_SPEED; dy = wheel_y * PAN_SPEED; }
+                        int w, h; SDL_GetWindowSize(window, &w, &h);
+                        panGrid(grid, dx, dy, w, h);
+                    }
+                    eventHandled = true;
+                    break;
+                }
             }
 
             if (eventHandled) continue;
