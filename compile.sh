@@ -7,7 +7,7 @@ if [ "$1" == "-x" ]; then
 fi
 
 # Compile all CPP files
-g++ *.cpp -o gameoflife.out -lSDL2 -lSDL2_ttf
+g++ *.cpp -o gameoflife.out -lSDL2 -lSDL2_ttf -lSDL2_image
 
 # If compilation was successful and -x is set, run the program
 if $RUN_AFTER_COMPILE && [ $? -eq 0 ]; then
