@@ -66,9 +66,25 @@ jobs:
               if: startsWith(matrix.os, 'windows')
               shell: msys2 {0}
               run: |
+                  # Kopiere SDL2-DLLs
                   cp /mingw64/bin/SDL2.dll .
                   cp /mingw64/bin/SDL2_ttf.dll .
                   cp /mingw64/bin/SDL2_image.dll .
+
+                  # Kopiere zusätzliche DLLs für Bildformate
+                  cp /mingw64/bin/libavif-16.dll .
+                  cp /mingw64/bin/libjpeg-8.dll .
+                  cp /mingw64/bin/libjxl.dll .
+                  cp /mingw64/bin/libpng16-16.dll .
+
+                  # Kopiere weitere möglicherweise benötigte DLLs
+                  cp /mingw64/bin/libwebp-7.dll .
+                  cp /mingw64/bin/libwebpdemux-2.dll .
+                  cp /mingw64/bin/libwebpmux-3.dll .
+                  cp /mingw64/bin/zlib1.dll .
+                  cp /mingw64/bin/libwinpthread-1.dll .
+                  cp /mingw64/bin/libgcc_s_seh-1.dll .
+                  cp /mingw64/bin/libstdc++-6.dll .
 
             - name: Build binary on Unix
               if: matrix.os != 'windows-latest'
@@ -86,8 +102,8 @@ jobs:
               run: |
                   ARCHIVE_NAME="conways-game-of-life-${{ matrix.os }}-${{ matrix.arch }}"
                   if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-                    # Füge sans.ttf zum ZIP-Archiv hinzu
-                    7z a "${ARCHIVE_NAME}.zip" conways-game-of-life.exe SDL2.dll SDL2_ttf.dll SDL2_image.dll sans.ttf
+                    # Füge alle DLLs und die sans.ttf zum ZIP-Archiv hinzu
+                    7z a "${ARCHIVE_NAME}.zip" conways-game-of-life.exe *.dll sans.ttf
                   else
                     BIN_NAME="conways-game-of-life${{ matrix.ext }}"
                     # Füge sans.ttf zum TAR-Archiv hinzu
