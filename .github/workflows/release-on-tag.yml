@@ -47,6 +47,7 @@ jobs:
               with:
                   update: true
                   install: |
+                      mingw-w64-x86_64-toolchain
                       mingw-w64-x86_64-SDL2
                       mingw-w64-x86_64-SDL2_ttf
                       mingw-w64-x86_64-SDL2_image
