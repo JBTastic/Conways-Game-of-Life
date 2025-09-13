@@ -116,9 +116,11 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
         }
         break;
     case SDL_FINGERDOWN:
+        if (SDL_GetNumTouchFingers(event.tfinger.touchId) == 1) {
+            input.inMultiGesture = false; // Reset on first finger down
+        }
         input.fingerDown = true;
         input.isPanning = false;
-        input.inMultiGesture = false; // Reset gesture flag on new finger down
         input.startFingerX = input.lastFingerX = event.tfinger.x;
         input.startFingerY = input.lastFingerY = event.tfinger.y;
         break;
@@ -131,7 +133,10 @@ inline void handlePreGameEvent(SDL_Event &event, Grid &grid, InputState &input, 
         }
         input.fingerDown = false;
         input.isPanning = false;
-        input.inMultiGesture = false; // Reset gesture flag
+        // Only reset gesture flag when the last finger is lifted
+        if (SDL_GetNumTouchFingers(event.tfinger.touchId) == 0) {
+            input.inMultiGesture = false;
+        }
         break;
     case SDL_FINGERMOTION:
         if (input.fingerDown && !input.inMultiGesture)
