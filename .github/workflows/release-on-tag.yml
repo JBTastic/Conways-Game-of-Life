@@ -3,77 +3,97 @@ name: Build and Release on Tag
 on:
     push:
         tags:
-            - "v*.*.*"
+            - "v*.*.*" # reacts to tags like v1.0.0, v2.1.3, etc.
 
 jobs:
     build:
+        runs-on: ${{ matrix.os }}
+
         strategy:
             matrix:
-                config:
+                include:
                     - os: ubuntu-latest
-                      arch: x86_64
-                      artifact_name: conways-game-of-life-linux-amd64
-                      asset_name: conways-game-of-life-linux-amd64.tar.gz
-                      package_cmd: tar -czf
+                      osname: linux
+                      arch: amd64
+                      ext: ""
                     - os: windows-latest
-                      arch: x86_64
-                      artifact_name: conways-game-of-life-windows-amd64
-                      asset_name: conways-game-of-life-windows-amd64.zip
-                      package_cmd: zip
+                      osname: windows
+                      arch: amd64
+                      ext: ".exe"
                     - os: macos-latest
-                      arch: x86_64
-                      artifact_name: conways-game-of-life-darwin-amd64
-                      asset_name: conways-game-of-life-darwin-amd64.tar.gz
-                      package_cmd: tar -czf
+                      osname: darwin
+                      arch: amd64
+                      ext: ""
                     - os: macos-latest
+                      osname: darwin
                       arch: arm64
-                      artifact_name: conways-game-of-life-darwin-arm64
-                      asset_name: conways-game-of-life-darwin-arm64.tar.gz
-                      package_cmd: tar -czf
-
-        runs-on: ${{ matrix.config.os }}
+                      ext: ""
 
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Setup SDL
-              uses: libsdl-org/setup-sdl@main
-              with:
-                  version: "2-latest"
-                  version-sdl-image: "2-latest"
-                  version-sdl-ttf: "2-latest"
+            # Linux: install SDL2 from apt
+            - name: Install SDL2 on Linux
+              if: matrix.os == 'ubuntu-latest'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev zip tar
+
+            # macOS: install SDL2 via brew
+            - name: Install SDL2 on macOS
+              if: matrix.os == 'macos-latest'
+              run: |
+                  brew install sdl2 sdl2_ttf sdl2_image
+
+            # Windows: install SDL2 via vcpkg
+            - name: Install vcpkg and SDL2 on Windows
+              if: matrix.os == 'windows-latest'
+              shell: pwsh
+              run: |
+                  git clone https://github.com/microsoft/vcpkg.git
+                  ./vcpkg/bootstrap-vcpkg.bat
+                  ./vcpkg/vcpkg install sdl2 sdl2-ttf sdl2-image
+                  echo "VCPKG_ROOT=$PWD/vcpkg" >> $env:GITHUB_ENV
 
             - name: Build binary
               run: |
-                  BIN_NAME="conways-game-of-life"
-                  SDL_FLAGS=$(pkg-config --cflags --libs sdl2 SDL2_image SDL2_ttf)
-                  if [ "${{ runner.os }}" == "Windows" ]; then
-                    BIN_NAME="${BIN_NAME}.exe"
-                    g++ -std=c++17 *.cpp -o "$BIN_NAME" $SDL_FLAGS
-                  elif [ "${{ runner.os }}" == "macOS" ]; then
-                    clang++ -std=c++17 -arch ${{ matrix.config.arch }} *.cpp -o "$BIN_NAME" $SDL_FLAGS
-                  else
-                    g++ -std=c++17 *.cpp -o "$BIN_NAME" $SDL_FLAGS
-                  fi
-                  echo "BIN_PATH=${BIN_NAME}" >> $GITHUB_ENV
+                  BIN_NAME="conways-game-of-life${{ matrix.ext }}"
 
-            - name: Package artifact
-              run: |
-                  chmod +x "${{ env.BIN_PATH }}"
-                  ${{ matrix.config.package_cmd }} "${{ matrix.config.asset_name }}" "${{ env.BIN_PATH }}" icon.png sans.ttf
+                  if [[ "${{ matrix.osname }}" == "linux" ]]; then
+                    g++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                  elif [[ "${{ matrix.osname }}" == "darwin" ]]; then
+                    clang++ -std=c++17 *.cpp -o "$BIN_NAME" -lSDL2 -lSDL2_ttf -lSDL2_image
+                  elif [[ "${{ matrix.osname }}" == "windows" ]]; then
+                    ./vcpkg/vcpkg integrate install
+                    x86_64-w64-mingw32-g++ -std=c++17 *.cpp -o "$BIN_NAME" -I"$VCPKG_ROOT/installed/x64-windows/include" -L"$VCPKG_ROOT/installed/x64-windows/lib" -lSDL2 -lSDL2_ttf -lSDL2_image
+                  fi
+
+                  chmod +x "$BIN_NAME" || true
+
+                  ARCHIVE_NAME="conways-game-of-life-${{ matrix.osname }}-${{ matrix.arch }}"
+
+                  if [[ "${{ matrix.osname }}" == "linux" || "${{ matrix.osname }}" == "darwin" ]]; then
+                    tar -czf "${ARCHIVE_NAME}.tar.gz" "$BIN_NAME"
+                  elif [[ "${{ matrix.osname }}" == "windows" ]]; then
+                    powershell Compress-Archive -Path "$BIN_NAME" -DestinationPath "${ARCHIVE_NAME}.zip"
+                  fi
 
             - name: Upload artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: ${{ matrix.config.artifact_name }}
-                  path: ${{ matrix.config.asset_name }}
+                  name: conways-game-of-life-${{ matrix.osname }}-${{ matrix.arch }}
+                  path: |
+                      conways-game-of-life-${{ matrix.osname }}-${{ matrix.arch }}.tar.gz
+                      conways-game-of-life-${{ matrix.osname }}-${{ matrix.arch }}.zip
 
     release:
-        needs: [build]
+        needs: build
         runs-on: ubuntu-latest
         steps:
-            - name: Download all build artifacts
+            - uses: actions/checkout@v4
+
+            - name: Download build artifacts
               uses: actions/download-artifact@v4
               with:
                   path: ./artifacts
@@ -92,5 +112,6 @@ jobs:
                     file=$(find "$dir" -type f | head -n 1)
                     echo "Uploading $file"
                     gh release upload ${{ github.ref_name }} "$file"
+                  done
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
