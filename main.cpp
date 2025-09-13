@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
     Button clearButton(SCREEN_WIDTH / 2 - 165, 10, 150, 40, "Clear");
     Button centerButton(SCREEN_WIDTH / 2 + 15, 10, 150, 40, "Center");
     Button invertScrollCheckbox(100, 100, 450, 40, "[ ] Invert Mouse Scrolling");
+    Button showCenterCheckbox(100, 150, 450, 40, "[X] Show Grid Center");
 
     // GAME AND APP STATE
     GameState currentState = GameState::PRE_GAME;
@@ -70,6 +71,7 @@ int main(int argc, char *argv[])
     Uint32 lastUpdateTime = 0;
     const Uint32 updateInterval = 100;
     bool invertMouseScrolling = false;
+    bool showCenterMarker = true;
 
     // MAIN LOOP
     while (running)
@@ -142,7 +144,6 @@ int main(int argc, char *argv[])
                 if (event.type == SDL_MOUSEBUTTONDOWN) { mouseX = event.button.x; mouseY = event.button.y; }
                 else { int w, h; SDL_GetWindowSize(window, &w, &h); mouseX = event.tfinger.x * w; mouseY = event.tfinger.y * h; }
                 
-                // Settings button is always active, but changes text
                 if (settingsButton.isClicked(mouseX, mouseY)) {
                     currentState = (currentState == GameState::SETTINGS) ? GameState::PRE_GAME : GameState::SETTINGS;
                     settingsButton.text = (currentState == GameState::SETTINGS) ? "Back" : "Settings";
@@ -150,10 +151,8 @@ int main(int argc, char *argv[])
                 }
 
                 if (currentState == GameState::SETTINGS) {
-                    // In settings, pass click events to the settings handler
-                    handleSettingsEvent(event, invertMouseScrolling, invertScrollCheckbox);
+                    handleSettingsEvent(event, invertMouseScrolling, invertScrollCheckbox, showCenterMarker, showCenterCheckbox);
                 } else {
-                    // In other states, check the main game buttons
                     if (startButton.isClicked(mouseX, mouseY)) {
                         currentState = (currentState == GameState::RUNNING) ? GameState::PRE_GAME : GameState::RUNNING;
                         startButton.text = (currentState == GameState::RUNNING) ? "Pause" : "Start";
@@ -189,11 +188,10 @@ int main(int argc, char *argv[])
         int w, h; SDL_GetWindowSize(window, &w, &h);
         SDL_SetRenderDrawColor(renderer, 10, 10, 20, 255); SDL_RenderClear(renderer);
 
-        // Draw main content based on state
         if (currentState == GameState::PRE_GAME || currentState == GameState::RUNNING) {
-            renderGrid(renderer, grid);
+            renderGrid(renderer, grid, showCenterMarker);
         } else { // SETTINGS
-            renderSettings(renderer, font, invertScrollCheckbox);
+            renderSettings(renderer, font, invertScrollCheckbox, showCenterCheckbox);
         }
 
         // Draw UI on top

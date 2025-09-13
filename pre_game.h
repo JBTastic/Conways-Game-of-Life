@@ -105,7 +105,7 @@ inline void toggleCell(Grid &grid, int x, int y)
 }
 
 // Render the grid
-inline void renderGrid(SDL_Renderer *renderer, const Grid &grid)
+inline void renderGrid(SDL_Renderer *renderer, const Grid &grid, bool showCenterMarker)
 {
     // Draw cells
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -126,7 +126,7 @@ inline void renderGrid(SDL_Renderer *renderer, const Grid &grid)
     // Draw grid lines only if cells are large enough
     if (grid.cellSize >= 4)
     {
-        SDL_SetRenderDrawColor(renderer, 200, 200, 200, 200); // White for grid lines
+        SDL_SetRenderDrawColor(renderer, 200, 200, 200, 200); // Light gray for grid lines
         for (int x = 0; x <= grid.cols * grid.cellSize; x += grid.cellSize)
             SDL_RenderDrawLine(renderer, x + grid.offsetX, 0 + grid.offsetY,
                                x + grid.offsetX, grid.rows * grid.cellSize + grid.offsetY);
@@ -137,7 +137,7 @@ inline void renderGrid(SDL_Renderer *renderer, const Grid &grid)
     }
 
     // Draw center marker
-    if (grid.cellSize >= 4)
+    if (showCenterMarker && grid.cellSize >= 4)
     {
         int centerX = (grid.cols / 2) * grid.cellSize + grid.offsetX;
         int centerY = (grid.rows / 2) * grid.cellSize + grid.offsetY;
