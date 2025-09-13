@@ -57,7 +57,10 @@ jobs:
               if: startsWith(matrix.os, 'windows')
               shell: msys2 {0}
               run: |
-                  g++ -std=c++17 *.cpp -o conways-game-of-life.exe -lSDL2main -lSDL2 -lSDL2_ttf -lSDL2_image -mwindows
+                  # Verwende pkg-config für die korrekten Compiler-Flags
+                  g++ -std=c++17 *.cpp -o conways-game-of-life.exe \
+                    $(pkg-config --cflags --libs sdl2 SDL2_ttf SDL2_image) \
+                    -lSDL2main -mwindows
 
             - name: Copy DLLs on Windows
               if: startsWith(matrix.os, 'windows')
