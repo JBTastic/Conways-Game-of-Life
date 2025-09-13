@@ -40,50 +40,50 @@ jobs:
               run: |
                   brew install sdl2 sdl2_ttf sdl2_image pkg-config
 
-            # Windows: vcpkg
-            - name: Install vcpkg and SDL2 on Windows
+            # Windows: MSYS2 mit MinGW
+            - name: Install MSYS2 and SDL2 on Windows
               if: startsWith(matrix.os, 'windows')
-              shell: bash
-              run: |
-                  git clone https://github.com/microsoft/vcpkg.git
-                  ./vcpkg/bootstrap-vcpkg.sh
-                  ./vcpkg/vcpkg install sdl2 sdl2-ttf sdl2-image:x64-windows
-                  echo "VCPKG_ROOT=$PWD/vcpkg" >> $GITHUB_ENV
+              uses: msys2/setup-msys2@v2
+              with:
+                  update: true
+                  install: |
+                      mingw-w64-x86_64-SDL2
+                      mingw-w64-x86_64-SDL2_ttf
+                      mingw-w64-x86_64-SDL2_image
 
-            - name: Build binary
+            - name: Build binary on Windows
+              if: startsWith(matrix.os, 'windows')
+              shell: msys2 {0}
+              run: |
+                  g++ -std=c++17 *.cpp -o conways-game-of-life.exe -lSDL2main -lSDL2 -lSDL2_ttf -lSDL2_image -mwindows
+
+            - name: Copy DLLs on Windows
+              if: startsWith(matrix.os, 'windows')
+              shell: msys2 {0}
+              run: |
+                  cp /mingw64/bin/SDL2.dll .
+                  cp /mingw64/bin/SDL2_ttf.dll .
+                  cp /mingw64/bin/SDL2_image.dll .
+
+            - name: Build binary on Unix
+              if: matrix.os != 'windows-latest'
               shell: bash
               run: |
                   BIN_NAME="conways-game-of-life${{ matrix.ext }}"
-
                   if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
                     g++ -std=c++17 *.cpp -o "$BIN_NAME" $(pkg-config --cflags --libs sdl2 SDL2_ttf SDL2_image)
                   elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
                     clang++ -std=c++17 *.cpp -o "$BIN_NAME" $(pkg-config --cflags --libs sdl2 SDL2_ttf SDL2_image)
-                  elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-                    # Windows mit vcpkg - wichtige Änderung hier
-                    g++ -std=c++17 *.cpp -o "$BIN_NAME" \
-                      -I"$VCPKG_ROOT/installed/x64-windows/include" \
-                      -L"$VCPKG_ROOT/installed/x64-windows/lib" \
-                      -lSDL2main -lSDL2 -lSDL2_ttf -lSDL2_image -mwindows
                   fi
-
-            - name: Copy Windows DLLs
-              if: startsWith(matrix.os, 'windows')
-              shell: bash
-              run: |
-                  cp "$VCPKG_ROOT/installed/x64-windows/bin/SDL2.dll" .
-                  cp "$VCPKG_ROOT/installed/x64-windows/bin/SDL2_ttf.dll" .
-                  cp "$VCPKG_ROOT/installed/x64-windows/bin/SDL2_image.dll" .
 
             - name: Archive binary
               shell: bash
               run: |
                   ARCHIVE_NAME="conways-game-of-life-${{ matrix.os }}-${{ matrix.arch }}"
-                  BIN_NAME="conways-game-of-life${{ matrix.ext }}"
                   if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-                    # Archiviere sowohl die EXE als auch die DLLs
-                    7z a "${ARCHIVE_NAME}.zip" "$BIN_NAME" *.dll
+                    7z a "${ARCHIVE_NAME}.zip" conways-game-of-life.exe SDL2.dll SDL2_ttf.dll SDL2_image.dll
                   else
+                    BIN_NAME="conways-game-of-life${{ matrix.ext }}"
                     tar -czf "${ARCHIVE_NAME}.tar.gz" "$BIN_NAME"
                   fi
 
