@@ -86,6 +86,28 @@ jobs:
                   cp /mingw64/bin/libgcc_s_seh-1.dll .
                   cp /mingw64/bin/libstdc++-6.dll .
 
+                  # Kopiere die neu gefundenen fehlenden DLLs
+                  cp /mingw64/bin/libharfbuzz-0.dll .
+                  cp /mingw64/bin/libfreetype-6.dll .
+                  cp /mingw64/bin/libaom.dll .
+                  cp /mingw64/bin/libtiff-6.dll .
+
+                  # Kopiere mögliche zusätzliche Abhängigkeiten
+                  cp /mingw64/bin/libbrotlicommon.dll .
+                  cp /mingw64/bin/libbrotlidec.dll .
+                  cp /mingw64/bin/libbrotlienc.dll .
+                  cp /mingw64/bin/libdeflate.dll .
+                  cp /mingw64/bin/libexpat.dll .
+                  cp /mingw64/bin/libglib-2.0-0.dll .
+                  cp /mingw64/bin/libgraphite2.dll .
+                  cp /mingw64/bin/libintl-8.dll .
+                  cp /mingw64/bin/libjbig-0.dll .
+                  cp /mingw64/bin/libLerc.dll .
+                  cp /mingw64/bin/liblzma.dll .
+                  cp /mingw64/bin/libpcre2-8-0.dll .
+                  cp /mingw64/bin/libsharpyuv-0.dll .
+                  cp /mingw64/bin/libzstd.dll .
+
             - name: Build binary on Unix
               if: matrix.os != 'windows-latest'
               shell: bash
