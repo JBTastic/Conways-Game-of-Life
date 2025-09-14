@@ -92,21 +92,21 @@ jobs:
                   cp /mingw64/bin/libaom.dll .
                   cp /mingw64/bin/libtiff-6.dll .
 
-                  # Kopiere mögliche zusätzliche Abhängigkeiten
-                  cp /mingw64/bin/libbrotlicommon.dll .
-                  cp /mingw64/bin/libbrotlidec.dll .
-                  cp /mingw64/bin/libbrotlienc.dll .
-                  cp /mingw64/bin/libdeflate.dll .
-                  cp /mingw64/bin/libexpat.dll .
-                  cp /mingw64/bin/libglib-2.0-0.dll .
-                  cp /mingw64/bin/libgraphite2.dll .
-                  cp /mingw64/bin/libintl-8.dll .
-                  cp /mingw64/bin/libjbig-0.dll .
-                  cp /mingw64/bin/libLerc.dll .
-                  cp /mingw64/bin/liblzma.dll .
-                  cp /mingw64/bin/libpcre2-8-0.dll .
-                  cp /mingw64/bin/libsharpyuv-0.dll .
-                  cp /mingw64/bin/libzstd.dll .
+                  # Kopiere mögliche zusätzliche Abhängigkeiten (nur wenn sie existieren)
+                  [ -f /mingw64/bin/libbrotlicommon.dll ] && cp /mingw64/bin/libbrotlicommon.dll . || true
+                  [ -f /mingw64/bin/libbrotlidec.dll ] && cp /mingw64/bin/libbrotlidec.dll . || true
+                  [ -f /mingw64/bin/libbrotlienc.dll ] && cp /mingw64/bin/libbrotlienc.dll . || true
+                  [ -f /mingw64/bin/libdeflate.dll ] && cp /mingw64/bin/libdeflate.dll . || true
+                  [ -f /mingw64/bin/libexpat.dll ] && cp /mingw64/bin/libexpat.dll . || true
+                  [ -f /mingw64/bin/libglib-2.0-0.dll ] && cp /mingw64/bin/libglib-2.0-0.dll . || true
+                  [ -f /mingw64/bin/libgraphite2.dll ] && cp /mingw64/bin/libgraphite2.dll . || true
+                  [ -f /mingw64/bin/libintl-8.dll ] && cp /mingw64/bin/libintl-8.dll . || true
+                  [ -f /mingw64/bin/libjbig-0.dll ] && cp /mingw64/bin/libjbig-0.dll . || true
+                  [ -f /mingw64/bin/libLerc.dll ] && cp /mingw64/bin/libLerc.dll . || true
+                  [ -f /mingw64/bin/liblzma.dll ] && cp /mingw64/bin/liblzma.dll . || true
+                  [ -f /mingw64/bin/libpcre2-8-0.dll ] && cp /mingw64/bin/libpcre2-8-0.dll . || true
+                  [ -f /mingw64/bin/libsharpyuv-0.dll ] && cp /mingw64/bin/libsharpyuv-0.dll . || true
+                  [ -f /mingw64/bin/libzstd.dll ] && cp /mingw64/bin/libzstd.dll . || true
 
             - name: Build binary on Unix
               if: matrix.os != 'windows-latest'
