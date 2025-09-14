@@ -40,7 +40,7 @@ jobs:
               run: |
                   brew install sdl2 sdl2_ttf sdl2_image pkg-config
 
-            # Windows: MSYS2 mit MinGW
+            # Windows: MSYS2 with MinGW
             - name: Install MSYS2 and SDL2 on Windows
               if: startsWith(matrix.os, 'windows')
               uses: msys2/setup-msys2@v2
@@ -57,7 +57,7 @@ jobs:
               if: startsWith(matrix.os, 'windows')
               shell: msys2 {0}
               run: |
-                  # Verwende pkg-config für die korrekten Compiler-Flags
+                  # Use pkg-config for correct compiler flags
                   g++ -std=c++17 *.cpp -o conways-game-of-life.exe \
                     $(pkg-config --cflags --libs sdl2 SDL2_ttf SDL2_image) \
                     -lSDL2main -mwindows
@@ -74,7 +74,7 @@ jobs:
               if: startsWith(matrix.os, 'windows')
               shell: msys2 {0}
               run: |
-                  # Funktion zum Kopieren von DLLs, wenn sie existieren
+                  # Function to copy DLLs if they exist
                   copy_dll_if_exists() {
                       if [ -f "/mingw64/bin/$1" ]; then
                           cp "/mingw64/bin/$1" .
@@ -84,32 +84,32 @@ jobs:
                       fi
                   }
 
-                  # Liste aller potenziell benötigter DLLs
+                  # List of all potentially required DLLs
                   all_dlls=(
-                    # SDL2 Haupt-DLLs
+                    # SDL2 main DLLs
                     "SDL2.dll" "SDL2_image.dll" "SDL2_ttf.dll"
                     
-                    # Bildformat-DLLs
+                    # Image format DLLs
                     "libavif-16.dll" "libjpeg-8.dll" "libjxl.dll" "libpng16-16.dll"
                     "libwebp-7.dll" "libwebpdemux-2.dll" "libwebpmux-3.dll" "zlib1.dll"
                     
-                    # Compiler und System-DLLs
+                    # Compiler and system DLLs
                     "libwinpthread-1.dll" "libgcc_s_seh-1.dll" "libstdc++-6.dll"
                     
-                    # Schriftarten-DLLs
+                    # Font DLLs
                     "libharfbuzz-0.dll" "libfreetype-6.dll"
                     
-                    # Video- und Bild-DLLs
+                    # Video and image DLLs
                     "libaom.dll" "libtiff-6.dll" "libdav1d-7.dll" "librav1e.dll"
                     "libSvtAv1Enc-3.dll" "libyuv.dll"
                     
-                    # Weitere mögliche Abhängigkeiten
+                    # Other possible dependencies
                     "libbrotlicommon.dll" "libbrotlidec.dll" "libbrotlienc.dll"
                     "libdeflate.dll" "libexpat.dll" "libglib-2.0-0.dll" "libgraphite2.dll"
                     "libintl-8.dll" "libjbig-0.dll" "libLerc.dll" "liblzma.dll"
                     "libpcre2-8-0.dll" "libsharpyuv-0.dll" "libzstd.dll"
                     
-                    # Weitere mögliche Codec-DLLs
+                    # Additional possible codec DLLs
                     "libbluray-2.dll" "libcaca-0.dll" "libcdio-19.dll" "libcdio_cdio-1.dll"
                     "libcdio_paranoia-1.dll" "libdvdnav-4.dll" "libdvdread-8.dll" "libmp3lame-0.dll"
                     "libogg-0.dll" "libopenjp2-7.dll" "libopus-0.dll" "libsamplerate-0.dll"
@@ -122,7 +122,7 @@ jobs:
                       copy_dll_if_exists "$dll"
                   done
 
-                  # Zusätzlich: Finde alle Abhängigkeiten unserer EXE-Datei
+                  # Additionally: find all dependencies of our EXE
                   echo "Analyzing dependencies of conways-game-of-life.exe..."
                   ldd conways-game-of-life.exe | grep -o '/mingw64/bin/.*dll' | while read -r dll; do
                       dll_name=$(basename "$dll")
@@ -148,12 +148,12 @@ jobs:
               run: |
                   ARCHIVE_NAME="conways-game-of-life-${{ matrix.os }}-${{ matrix.arch }}"
                   if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-                    # Füge alle DLLs und die sans.ttf zum ZIP-Archiv hinzu
-                    7z a "${ARCHIVE_NAME}.zip" conways-game-of-life.exe *.dll sans.ttf
+                    # Include all DLLs, sans.ttf, icon.png, and LICENCE.md in the ZIP archive
+                    7z a "${ARCHIVE_NAME}.zip" conways-game-of-life.exe *.dll sans.ttf icon.png LICENCE.md
                   else
                     BIN_NAME="conways-game-of-life${{ matrix.ext }}"
-                    # Füge sans.ttf zum TAR-Archiv hinzu
-                    tar -czf "${ARCHIVE_NAME}.tar.gz" "$BIN_NAME" sans.ttf
+                    # Include sans.ttf, icon.png, and LICENCE.md in the TAR archive
+                    tar -czf "${ARCHIVE_NAME}.tar.gz" "$BIN_NAME" sans.ttf icon.png LICENCE.md
                   fi
 
             - uses: actions/upload-artifact@v4
