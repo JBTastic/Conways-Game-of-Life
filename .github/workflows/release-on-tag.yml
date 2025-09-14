@@ -62,51 +62,75 @@ jobs:
                     $(pkg-config --cflags --libs sdl2 SDL2_ttf SDL2_image) \
                     -lSDL2main -mwindows
 
-            - name: Copy DLLs on Windows
+            - name: Copy SDL2 DLLs for analysis
               if: startsWith(matrix.os, 'windows')
               shell: msys2 {0}
               run: |
-                  # Kopiere SDL2-DLLs
                   cp /mingw64/bin/SDL2.dll .
-                  cp /mingw64/bin/SDL2_ttf.dll .
                   cp /mingw64/bin/SDL2_image.dll .
+                  cp /mingw64/bin/SDL2_ttf.dll .
 
-                  # Kopiere zusätzliche DLLs für Bildformate
-                  cp /mingw64/bin/libavif-16.dll .
-                  cp /mingw64/bin/libjpeg-8.dll .
-                  cp /mingw64/bin/libjxl.dll .
-                  cp /mingw64/bin/libpng16-16.dll .
+            - name: Find and copy all required DLLs
+              if: startsWith(matrix.os, 'windows')
+              shell: msys2 {0}
+              run: |
+                  # Funktion zum Kopieren von DLLs, wenn sie existieren
+                  copy_dll_if_exists() {
+                      if [ -f "/mingw64/bin/$1" ]; then
+                          cp "/mingw64/bin/$1" .
+                          echo "Copied $1"
+                      else
+                          echo "Skipping $1 (not found)"
+                      fi
+                  }
 
-                  # Kopiere weitere möglicherweise benötigte DLLs
-                  cp /mingw64/bin/libwebp-7.dll .
-                  cp /mingw64/bin/libwebpdemux-2.dll .
-                  cp /mingw64/bin/libwebpmux-3.dll .
-                  cp /mingw64/bin/zlib1.dll .
-                  cp /mingw64/bin/libwinpthread-1.dll .
-                  cp /mingw64/bin/libgcc_s_seh-1.dll .
-                  cp /mingw64/bin/libstdc++-6.dll .
+                  # Liste aller potenziell benötigter DLLs
+                  all_dlls=(
+                    # SDL2 Haupt-DLLs
+                    "SDL2.dll" "SDL2_image.dll" "SDL2_ttf.dll"
+                    
+                    # Bildformat-DLLs
+                    "libavif-16.dll" "libjpeg-8.dll" "libjxl.dll" "libpng16-16.dll"
+                    "libwebp-7.dll" "libwebpdemux-2.dll" "libwebpmux-3.dll" "zlib1.dll"
+                    
+                    # Compiler und System-DLLs
+                    "libwinpthread-1.dll" "libgcc_s_seh-1.dll" "libstdc++-6.dll"
+                    
+                    # Schriftarten-DLLs
+                    "libharfbuzz-0.dll" "libfreetype-6.dll"
+                    
+                    # Video- und Bild-DLLs
+                    "libaom.dll" "libtiff-6.dll" "libdav1d-7.dll" "librav1e.dll"
+                    "libSvtAv1Enc-3.dll" "libyuv.dll"
+                    
+                    # Weitere mögliche Abhängigkeiten
+                    "libbrotlicommon.dll" "libbrotlidec.dll" "libbrotlienc.dll"
+                    "libdeflate.dll" "libexpat.dll" "libglib-2.0-0.dll" "libgraphite2.dll"
+                    "libintl-8.dll" "libjbig-0.dll" "libLerc.dll" "liblzma.dll"
+                    "libpcre2-8-0.dll" "libsharpyuv-0.dll" "libzstd.dll"
+                    
+                    # Weitere mögliche Codec-DLLs
+                    "libbluray-2.dll" "libcaca-0.dll" "libcdio-19.dll" "libcdio_cdio-1.dll"
+                    "libcdio_paranoia-1.dll" "libdvdnav-4.dll" "libdvdread-8.dll" "libmp3lame-0.dll"
+                    "libogg-0.dll" "libopenjp2-7.dll" "libopus-0.dll" "libsamplerate-0.dll"
+                    "libspeex-1.dll" "libtheora-0.dll" "libtheoradec-1.dll" "libtheoraenc-1.dll"
+                    "libvorbis-0.dll" "libvorbisenc-2.dll" "libvorbisfile-3.dll" "libvpx-1.dll"
+                    "libwavpack-1.dll" "libx264-164.dll" "libx265-199.dll" "libxml2-2.dll"
+                  )
 
-                  # Kopiere die neu gefundenen fehlenden DLLs
-                  cp /mingw64/bin/libharfbuzz-0.dll .
-                  cp /mingw64/bin/libfreetype-6.dll .
-                  cp /mingw64/bin/libaom.dll .
-                  cp /mingw64/bin/libtiff-6.dll .
+                  for dll in "${all_dlls[@]}"; do
+                      copy_dll_if_exists "$dll"
+                  done
 
-                  # Kopiere mögliche zusätzliche Abhängigkeiten (nur wenn sie existieren)
-                  [ -f /mingw64/bin/libbrotlicommon.dll ] && cp /mingw64/bin/libbrotlicommon.dll . || true
-                  [ -f /mingw64/bin/libbrotlidec.dll ] && cp /mingw64/bin/libbrotlidec.dll . || true
-                  [ -f /mingw64/bin/libbrotlienc.dll ] && cp /mingw64/bin/libbrotlienc.dll . || true
-                  [ -f /mingw64/bin/libdeflate.dll ] && cp /mingw64/bin/libdeflate.dll . || true
-                  [ -f /mingw64/bin/libexpat.dll ] && cp /mingw64/bin/libexpat.dll . || true
-                  [ -f /mingw64/bin/libglib-2.0-0.dll ] && cp /mingw64/bin/libglib-2.0-0.dll . || true
-                  [ -f /mingw64/bin/libgraphite2.dll ] && cp /mingw64/bin/libgraphite2.dll . || true
-                  [ -f /mingw64/bin/libintl-8.dll ] && cp /mingw64/bin/libintl-8.dll . || true
-                  [ -f /mingw64/bin/libjbig-0.dll ] && cp /mingw64/bin/libjbig-0.dll . || true
-                  [ -f /mingw64/bin/libLerc.dll ] && cp /mingw64/bin/libLerc.dll . || true
-                  [ -f /mingw64/bin/liblzma.dll ] && cp /mingw64/bin/liblzma.dll . || true
-                  [ -f /mingw64/bin/libpcre2-8-0.dll ] && cp /mingw64/bin/libpcre2-8-0.dll . || true
-                  [ -f /mingw64/bin/libsharpyuv-0.dll ] && cp /mingw64/bin/libsharpyuv-0.dll . || true
-                  [ -f /mingw64/bin/libzstd.dll ] && cp /mingw64/bin/libzstd.dll . || true
+                  # Zusätzlich: Finde alle Abhängigkeiten unserer EXE-Datei
+                  echo "Analyzing dependencies of conways-game-of-life.exe..."
+                  ldd conways-game-of-life.exe | grep -o '/mingw64/bin/.*dll' | while read -r dll; do
+                      dll_name=$(basename "$dll")
+                      if [ -f "$dll" ]; then
+                          cp "$dll" .
+                          echo "Copied dependency: $dll_name"
+                      fi
+                  done
 
             - name: Build binary on Unix
               if: matrix.os != 'windows-latest'
